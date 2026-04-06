@@ -1,115 +1,139 @@
+from pathlib import Path
 from openpyxl import load_workbook, Workbook
 
-def score_participants(rep, que):
-    participant = que[1]  # Le participant est stocké dans le deuxième élément de la liste `que`
-    resilience = 0
-    esprit_critique = 0
-    comportement_social = 0
-    competences_techniques = 0
-    traitement_information = 0
-    creation = 0
-    total = 0
 
-    # Boucle sur les réponses du participant en commençant à l'index 3 (les réponses commencent à partir du 4ème élément de `que`)
-    for index, elem in enumerate(que[3:]):
-        question_type = rep[index][0]
-        reponses_possibles = rep[index][1:]
-        
-        for reponse, score in reponses_possibles:
-            if elem[0] == reponse:
-                # Incrémente le score correspondant à la catégorie de la question
-                if question_type == "Résilience": resilience += score
-                elif question_type == "EC": esprit_critique += score
-                elif question_type == "CSDLEN": comportement_social += score
-                elif question_type == "CDC": creation += score
-                elif question_type == "CT": competences_techniques += score
-                elif question_type == "TDLinfo": traitement_information += score
-    
-    if resilience < 0 :
-        resilience = 0
-    if esprit_critique < 0:
-        esprit_critique = 0
-    if comportement_social < 0:
-        comportement_social = 0
-    if competences_techniques < 0:
-        competences_techniques = 0
-    if traitement_information < 0:
-        traitement_information = 0
-    if creation < 0:
-        creation = 0
-    total = resilience + esprit_critique + comportement_social + competences_techniques + traitement_information + creation
-    # Retourne la liste des scores pour le participant
-    return [participant, resilience, esprit_critique, comportement_social, competences_techniques, traitement_information, creation, total]
+def calculer_scores_participant(grille_cotation, ligne_participant):
+    """
+    Calcule les scores d'un participant à partir d'une ligne de réponses Excel.
+    """
+
+    identifiant_participant = ligne_participant[1]
+
+    scores = {
+        "Résilience": 0,
+        "Esprit critique": 0,
+        "Comportement social": 0,
+        "Compétences techniques": 0,
+        "Traitement de l'information": 0,
+        "Création": 0,
+    }
+
+    correspondance_dimensions = {
+        "Résilience": "Résilience",
+        "EC": "Esprit critique",
+        "CSDLEN": "Comportement social",
+        "CT": "Compétences techniques",
+        "TDLinfo": "Traitement de l'information",
+        "CDC": "Création",
+    }
+
+    # Les réponses commencent à partir de la 4e colonne
+    for index, reponse_participant in enumerate(ligne_participant[3:]):
+        code_dimension = grille_cotation[index][0]
+        reponses_possibles = grille_cotation[index][1:]
+
+        if reponse_participant is None:
+            continue
+
+        reponse_participant = str(reponse_participant).strip()
+
+        for reponse_attendue, score in reponses_possibles:
+            if reponse_participant == reponse_attendue:
+                nom_dimension = correspondance_dimensions[code_dimension]
+                scores[nom_dimension] += score
+                break
+
+    # Ramener les scores négatifs à 0
+    for dimension in scores:
+        if scores[dimension] < 0:
+            scores[dimension] = 0
+
+    score_total = sum(scores.values())
+
+    return [
+        identifiant_participant,
+        scores["Résilience"],
+        scores["Esprit critique"],
+        scores["Comportement social"],
+        scores["Compétences techniques"],
+        scores["Traitement de l'information"],
+        scores["Création"],
+        score_total,
+    ]
 
 
-# Chemin vers votre fichier Excel
-file = r'C:\Users\Kévin\Downloads\QCM LVL LITE.xlsx'
-
-# Liste des réponses correctes pour chaque question
-reponses = [
-    ('Résilience', ('A',0.5),('B',1),('C',-1),('D',-0.5),('E',0)),
-    ('Résilience', ('A',-0.5),('B',-1),('C',1),('D',-0.5),('E',0)),
-    ('EC', ('A',-1),('B',1),('C',-0.5),('D',-0.5),('E',0)),
-    ('CSDLEN', ('A',-0.5),('B',1),('C',-0.5),('D',-0.5),('E',0)),
-    ('CSDLEN', ('A',-0.5),('B',1),('C',-1),('D',-0.5),('E',0)),
-    ('CDC', ('A',-0.5),('B',-0.5),('C',1),('D',-1),('E',0)),
-    ('Résilience', ('A',1),('B',0),('C',0.5),('D',-1),('E',0)),
-    ('CDC', ('A',-1),('B',-0.5),('C',1),('D',-1),('E',0)),
-    ('CT', ('1',1),('2',-1),('3',-0.5),('4',-1),('5',0)),
-    ('TDLinfo', ('A',0.5),('B',-1),('C',1),('D',0),('E',0)),
-    ('CDC', ('A',-1),('B',1),('C',1),('D',-1),('E',0)), #Je souhaite partager une vidéo avec un ami
-    ('CT', ('1',1),('2',-0.5),('3',-1),('4',-1),('5',0)),
-    ('CDC', ('A',-1),('B',0.5),('C',1),('D',-0.5),('E',0)),
-    ('Résilience', ('A',-0.5),('B',0.5),('C',-1),('D',1),('E',0)),
-    ('CT', ('1',0.5),('2',1),('3',-1),('4',-1),('5',0)),
-    ('CSDLEN', ('A',-1),('B',-0.5),('C',-1),('D',1),('E',0)), #Fake news
-    ('EC', ('A',1),('B',-1),('C',-0.5),('D',-1),('E',0)),
-    ('TDLinfo', ('A',1),('B',0.5),('C',-1),('D',-1),('E',0)),
-    ('TDLinfo', ('A',1),('B',-1),('C',-0.5),('D',0.5),('E',0)),
-    ('CT', ('1',-1),('2',-1),('3',1),('4',-1),('5',0)),
-    ('CT', ('1',-1),('2',1),('3',-1),('4',-1),('5',0)),
-    ('CDC', ('A',-0.5),('B',1),('C',-1),('D',-1),('E',0)),
-    ('TDLinfo', ('A',-1),('B',-1),('C',1),('D',-0.5),('E',0)),
-    ('CSDLEN', ('A',-1),('B',-0.5),('C',1),('D',-1),('E',0)),
-    ('EC', ('A',-1),('B',-1),('C',1),('D',-1),('E',0)),
-    ('CSDLEN', ('A',-0.5),('B',1),('C',-0.5),('D',-0.5),('E',0)),
-    ('Résilience', ('A',-0.5),('B',-1),('C',1),('D',0),('E',0)),
-    ('EC', ('A',1),('B',-1),('C',-1),('D',-0.5),('E',0)),
-    ('TDLinfo', ('A',0.5),('B',-1),('C',1),('D',-0.5),('E',0)),
-    ('EC', ('A',-1),('B',1),('C',-0.5),('D',-1),('E',0)),
+# Grille de cotation
+GRILLE_COTATION = [
+    ('Résilience', ('A', 0.5), ('B', 1), ('C', -1), ('D', -0.5), ('E', 0)),
+    ('Résilience', ('A', -0.5), ('B', -1), ('C', 1), ('D', -0.5), ('E', 0)),
+    ('EC', ('A', -1), ('B', 1), ('C', -0.5), ('D', -0.5), ('E', 0)),
+    ('CSDLEN', ('A', -0.5), ('B', 1), ('C', -0.5), ('D', -0.5), ('E', 0)),
+    ('CSDLEN', ('A', -0.5), ('B', 1), ('C', -1), ('D', -0.5), ('E', 0)),
+    ('CDC', ('A', -0.5), ('B', -0.5), ('C', 1), ('D', -1), ('E', 0)),
+    ('Résilience', ('A', 1), ('B', 0), ('C', 0.5), ('D', -1), ('E', 0)),
+    ('CDC', ('A', -1), ('B', -0.5), ('C', 1), ('D', -1), ('E', 0)),
+    ('CT', ('1', 1), ('2', -1), ('3', -0.5), ('4', -1), ('5', 0)),
+    ('TDLinfo', ('A', 0.5), ('B', -1), ('C', 1), ('D', 0), ('E', 0)),
+    ('CDC', ('A', -1), ('B', 1), ('C', 1), ('D', -1), ('E', 0)),
+    ('CT', ('1', 1), ('2', -0.5), ('3', -1), ('4', -1), ('5', 0)),
+    ('CDC', ('A', -1), ('B', 0.5), ('C', 1), ('D', -0.5), ('E', 0)),
+    ('Résilience', ('A', -0.5), ('B', 0.5), ('C', -1), ('D', 1), ('E', 0)),
+    ('CT', ('1', 0.5), ('2', 1), ('3', -1), ('4', -1), ('5', 0)),
+    ('CSDLEN', ('A', -1), ('B', -0.5), ('C', -1), ('D', 1), ('E', 0)),
+    ('EC', ('A', 1), ('B', -1), ('C', -0.5), ('D', -1), ('E', 0)),
+    ('TDLinfo', ('A', 1), ('B', 0.5), ('C', -1), ('D', -1), ('E', 0)),
+    ('TDLinfo', ('A', 1), ('B', -1), ('C', -0.5), ('D', 0.5), ('E', 0)),
+    ('CT', ('1', -1), ('2', -1), ('3', 1), ('4', -1), ('5', 0)),
+    ('CT', ('1', -1), ('2', 1), ('3', -1), ('4', -1), ('5', 0)),
+    ('CDC', ('A', -0.5), ('B', 1), ('C', -1), ('D', -1), ('E', 0)),
+    ('TDLinfo', ('A', -1), ('B', -1), ('C', 1), ('D', -0.5), ('E', 0)),
+    ('CSDLEN', ('A', -1), ('B', -0.5), ('C', 1), ('D', -1), ('E', 0)),
+    ('EC', ('A', -1), ('B', -1), ('C', 1), ('D', -1), ('E', 0)),
+    ('CSDLEN', ('A', -0.5), ('B', 1), ('C', -0.5), ('D', -0.5), ('E', 0)),
+    ('Résilience', ('A', -0.5), ('B', -1), ('C', 1), ('D', 0), ('E', 0)),
+    ('EC', ('A', 1), ('B', -1), ('C', -1), ('D', -0.5), ('E', 0)),
+    ('TDLinfo', ('A', 0.5), ('B', -1), ('C', 1), ('D', -0.5), ('E', 0)),
+    ('EC', ('A', -1), ('B', 1), ('C', -0.5), ('D', -1), ('E', 0)),
 ]
 
-# Charger le fichier Excel des résultats aux questions
-workbook = load_workbook(file)
-sheet = workbook.active
 
-data = []
+def main():
+    fichier_entree = Path("donnees/questionnaire_reponses.xlsx")
+    fichier_sortie = Path("resultats/scores_questionnaire.xlsx")
 
-# Itération sur les lignes et colonnes de la feuille active pour lire les données
-for row in sheet.iter_rows(values_only=True):
-    data.append(list(row))
+    fichier_sortie.parent.mkdir(parents=True, exist_ok=True)
 
-# Supprimer la première ligne car elle contient les questions, pas les réponses
-del data[0]
+    classeur_entree = load_workbook(fichier_entree)
+    feuille_entree = classeur_entree.active
 
-# Créer un nouveau classeur pour les résultats
-result_workbook = Workbook()
-result_sheet = result_workbook.active
+    donnees = [list(row) for row in feuille_entree.iter_rows(values_only=True)]
 
-# Écrire les en-têtes dans le nouveau classeur
-headers = ["Participant", "Résilience", "Esprit Critique", "Comportement Social", "Compétences Techniques", "Traitement de l'Information", "Création", "Total"]
-result_sheet.append(headers)
+    # Suppression de la ligne d'en-tête
+    donnees = donnees[1:]
 
-# Calculer et écrire les scores pour chaque participant
-for i in range(len(data)):
-    scores = score_participants(reponses, data[i])
-    result_sheet.append(scores)
+    classeur_sortie = Workbook()
+    feuille_sortie = classeur_sortie.active
+    feuille_sortie.title = "Scores"
 
-# Sauvegarder le nouveau fichier Excel avec les résultats
-result_file = r'C:\Users\Kévin\Downloads\scores dimensions QCM LVL LITE.xlsx'
-result_workbook.save(result_file)
+    en_tetes = [
+        "Participant",
+        "Résilience",
+        "Esprit critique",
+        "Comportement social",
+        "Compétences techniques",
+        "Traitement de l'information",
+        "Création",
+        "Total",
+    ]
+    feuille_sortie.append(en_tetes)
 
-print(f"Les résultats ont été enregistrés dans {result_file}")
+    for ligne_participant in donnees:
+        scores = calculer_scores_participant(GRILLE_COTATION, ligne_participant)
+        feuille_sortie.append(scores)
+
+    classeur_sortie.save(fichier_sortie)
+    print(f"Les résultats ont été enregistrés dans : {fichier_sortie}")
 
 
-
+if __name__ == "__main__":
+    main()
